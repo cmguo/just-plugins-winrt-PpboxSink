@@ -31,7 +31,7 @@ HRESULT GetDestinationtFromConfigurations(
     ABI::Windows::Foundation::Collections::IPropertySet *pConfigurations, 
     HSTRING * pDestinationt);
 
-struct PPBOX_StreamInfoEx;
+struct PPBOX_StreamInfo;
 
 HRESULT CreateVideoMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType);
 HRESULT CreateAudioMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType);
