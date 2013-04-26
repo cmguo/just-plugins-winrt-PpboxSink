@@ -14,7 +14,6 @@
 
 
 #include "StdAfx.h"
-#include "PpboxMediaType.h"
 #include <InitGuid.h>
 #include <wmcodecdsp.h>
 
@@ -24,8 +23,10 @@
 #include "SafeRelease.h"
 #include "Trace.h"
 
-#define PPBOX_EXTERN
+#define PPBOX_IMPORT_FUNC
 #include "plugins/ppbox/ppbox.h"
+
+#include "PpboxMediaType.h"
 
 using namespace ABI::Windows::Foundation;
 using namespace ABI::Windows::Foundation::Collections;
@@ -330,244 +331,163 @@ HRESULT ConvertConfigurationsToMediaTypes(
     return hr;
 }
 
+HRESULT GetDestinationtFromConfigurations(
+    ABI::Windows::Foundation::Collections::IPropertySet *pConfigurations, 
+    HSTRING * pDestination)
+{
+    HRESULT hr = S_OK;
+    ComPtr<IPropertySet> sConfigurations(pConfigurations);
+    ComPtr<IMap<HSTRING, IInspectable*>> spMap;
+    HSTRING hKey = NULL;
+    ComPtr<IInspectable> spValue;
+    ComPtr<IPropertyValue> spDestination;
+
+    if (pConfigurations == nullptr || pDestination == nullptr)
+    {
+        return E_INVALIDARG;
+    }
+   
+    hr = sConfigurations.As(&spMap);
+
+    if (SUCCEEDED(hr))
+    {
+        WindowsCreateString(L"Destination", 11, &hKey);
+    }
+    if (SUCCEEDED(hr))
+    {
+        hr = spMap->Lookup(hKey, &spValue);
+    }
+    if (SUCCEEDED(hr))
+    {
+        hr = WindowsDeleteString(hKey);
+    }
+    if (SUCCEEDED(hr))
+    {
+        hr = spValue.As(&spDestination);
+    }
+    if (SUCCEEDED(hr))
+    {
+        spDestination->GetString(pDestination);
+    }
+    return hr;
+}
+
 
 //-------------------------------------------------------------------
 // CreateVideoMediaType:
 // Create a media type from an Ppbox video sequence header.
 //-------------------------------------------------------------------
 
-HRESULT CreateVideoMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppType)
+HRESULT CreateVideoMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
 {
     HRESULT hr = S_OK;
 
-    IMFMediaType *pType = NULL;
-
-    hr = MFCreateMediaType(&pType);
-
     if (SUCCEEDED(hr))
     {
-        hr = pType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
-    }
-
-    if (SUCCEEDED(hr))
-    {
-        if (info.sub_type == ppbox_video_avc)
-            hr = pType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_H264);
-        else
-            hr = pType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_WMV3);
+        GUID sub_type;
+        hr = pType->GetGUID(MF_MT_SUBTYPE, &sub_type);
+        if (SUCCEEDED(hr))
+        {
+            if (sub_type == MFVideoFormat_H264) {
+                info.sub_type = PPBOX_VideoSubType::AVC1;
+                info.format_type = PPBOX_FormatType::video_avc_byte_stream;
+                if (SUCCEEDED(hr))
+                {
+                    // sequence header
+                    UINT8 * buf = new UINT8[256];
+                    UINT32 len = 0;
+                    hr = pType->GetBlob(
+                        MF_MT_MPEG_SEQUENCE_HEADER,
+                        buf,
+                        256, 
+                        &len);
+                    if (SUCCEEDED(hr)) {
+                        info.format_size = len;
+                        info.format_buffer = buf;
+                    } else {
+                        hr = S_OK;
+                        delete buf;
+                    }
+                }
+            } else if (sub_type == MFVideoFormat_WMV3) {
+                info.sub_type = PPBOX_VideoSubType::WMV3;
+                info.format_type = PPBOX_FormatType::none;
+            } else {
+                hr = MF_E_INVALIDTYPE;
+            }
+        }
     }
 
     // Format details.
     if (SUCCEEDED(hr))
     {
         // Frame size
-
-        hr = MFSetAttributeSize(
+        UINT32 width = 0;
+        UINT32 height = 0;
+        hr = MFGetAttributeSize(
             pType,
             MF_MT_FRAME_SIZE,
-            info.video_format.width,
-            info.video_format.height
+            &width,
+            &height
             );
+        if (SUCCEEDED(hr))
+        {
+            info.video_format.width = width;
+            info.video_format.height = height;
+        }
     }
 
     if (SUCCEEDED(hr))
     {
         // Frame rate
 
-        hr = MFSetAttributeRatio(
+        UINT32 N = 0;
+        UINT32 D = 0;
+        hr = MFGetAttributeRatio(
             pType,
             MF_MT_FRAME_RATE,
-            info.video_format.frame_rate,
-            1
+            &N,
+            &D
             );
+        if (SUCCEEDED(hr))
+        {
+            info.video_format.frame_rate = N / D;
+        }
     }
 
-    if (SUCCEEDED(hr))
-    {
-        // foramt data
-
-        hr = pType->SetBlob(
-            MF_MT_USER_DATA,
-            info.format_buffer,
-            info.format_size
-            );
-    }
-
-    if (SUCCEEDED(hr))
-    {
-        *ppType = pType;
-        (*ppType)->AddRef();
-    }
-
-    SafeRelease(&pType);
     return hr;
 }
 
-//-------------------------------------------------------------------
-// CreateAudioMediaType:
-// Create a media type from an Ppbox audio frame header.
-//
-// Note: This function fills in an PpboxWAVEFORMAT structure and then
-// converts the structure to a Media Foundation media type
-// (IMFMediaType). This is somewhat roundabout but it guarantees
-// that the type can be converted back to an PpboxWAVEFORMAT by the
-// decoder if need be.
-//
-// The WAVEFORMATEX portion of the PpboxWAVEFORMAT structure is
-// converted into attributes on the IMFMediaType object. The rest of
-// the struct is stored in the MF_MT_USER_DATA attribute.
-//-------------------------------------------------------------------
-/*
-HRESULT LogMediaType(IMFMediaType *pType);
-HRESULT CreateAudioMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppType)
-{
-HRESULT hr = S_OK;
-IMFMediaType *pType = NULL;
-DWORD dwSize = sizeof(WAVEFORMATEX) + info.format_size;
-
-WAVEFORMATEX  * wf = (WAVEFORMATEX  *)new BYTE[dwSize];
-if (wf == 0) 
-return(E_OUTOFMEMORY);
-memset(wf, 0, dwSize);
-
-wf->wFormatTag = WAVE_FORMAT_WMAUDIO2;
-wf->nChannels = info.audio_format.channel_count;
-wf->nSamplesPerSec = info.audio_format.sample_rate;
-wf->nAvgBytesPerSec = 3995;
-wf->nBlockAlign = 742;
-wf->wBitsPerSample = info.audio_format.sample_size;
-wf->cbSize = info.format_size;
-memcpy(wf + 1, info.format_buffer, info.format_size);
-
-// Use the structure to initialize the Media Foundation media type.
-hr = MFCreateMediaType(&pType);
-if (SUCCEEDED(hr))
-{
-hr = MFInitMediaTypeFromWaveFormatEx(pType, wf, dwSize);
-}
-
-if (SUCCEEDED(hr))
-{
-*ppType = pType;
-(*ppType)->AddRef();
-}
-
-LogMediaType(pType);
-
-SafeRelease(&pType);
-return hr;
-}
-//*/
-/*
-DEFINE_GUID(MEDIASUBTYPE_RAW_AAC1, 0x000000FF, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71);
-HRESULT CreateAudioMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppType)
-{
-HRESULT hr = S_OK;
-IMFMediaType *pType = NULL;
-
-hr = MFCreateMediaType(&pType);
-
-if (SUCCEEDED(hr))
-{
-hr = pType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio);
-}
-
-// Subtype = Ppbox payload
-if (SUCCEEDED(hr))
-{
-hr = pType->SetGUID(MF_MT_SUBTYPE, MEDIASUBTYPE_RAW_AAC1);
-}
-
-// Format details.
-if (SUCCEEDED(hr))
-{
-// Sample size
-
-hr = pType->SetUINT32(
-MF_MT_AUDIO_BITS_PER_SAMPLE,
-info.audio_format.sample_size
-);
-}
-if (SUCCEEDED(hr))
-{
-// Channel count
-
-hr = pType->SetUINT32(
-MF_MT_AUDIO_NUM_CHANNELS,
-info.audio_format.channel_count
-);
-}
-if (SUCCEEDED(hr))
-{
-// Channel count
-
-hr = pType->SetUINT32(
-MF_MT_AUDIO_SAMPLES_PER_SECOND,
-info.audio_format.sample_rate
-);
-}
-if (SUCCEEDED(hr))
-{
-// foramt data
-
-hr = pType->SetBlob(
-MF_MT_USER_DATA,
-info.format_buffer,
-info.format_size
-);
-}
-if (SUCCEEDED(hr))
-{
-*ppType = pType;
-(*ppType)->AddRef();
-}
-
-SafeRelease(&pType);
-return hr;
-}
-//*/
 //*
-HRESULT Fill_HEAACWAVEFORMAT(const PPBOX_StreamInfoEx& info, PHEAACWAVEFORMAT format)
-{
-    PWAVEFORMATEX wf = &format->wfInfo.wfx;
-    wf->wFormatTag = WAVE_FORMAT_MPEG_HEAAC;
-    wf->nChannels = (WORD)info.audio_format.channel_count;
-    wf->nSamplesPerSec = info.audio_format.sample_rate;
-    wf->nAvgBytesPerSec = 0;
-    wf->nBlockAlign = 1;
-    wf->wBitsPerSample = (WORD)info.audio_format.sample_size;
-    wf->cbSize = (WORD)(sizeof(format->wfInfo) - sizeof(format->wfInfo.wfx) + info.format_size);
-    PHEAACWAVEINFO hawi = &format->wfInfo;
-    hawi->wPayloadType = 0; // The stream contains raw_data_block elements only. 
-    hawi->wAudioProfileLevelIndication = 0x29;
-    hawi->wStructType = 0;
-    hawi->wReserved1 = 0;
-    hawi->dwReserved2 = 0;
-    memcpy(format->pbAudioSpecificConfig, info.format_buffer, info.format_size);
-    return S_OK;
-}
-
-HRESULT CreateAudioMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppType)
+HRESULT CreateAudioMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
 {
     HRESULT hr = S_OK;
-    IMFMediaType *pType = NULL;
-
-    hr = MFCreateMediaType(&pType);
-
-    if (SUCCEEDED(hr))
-    {
-        hr = pType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio);
-    }
 
     // Subtype = Ppbox payload
     if (SUCCEEDED(hr))
     {
-        if (info.sub_type == ppbox_audio_aac)
-            hr = pType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_AAC);
-        else if (info.sub_type == ppbox_audio_mp3)
-            hr = pType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_MP3);
-        else
-            hr = pType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_WMAudioV8);
+        GUID sub_type;
+        hr = pType->GetGUID(MF_MT_SUBTYPE, &sub_type);
+        if (SUCCEEDED(hr))
+        {
+            if (sub_type == MFAudioFormat_AAC) {
+                info.sub_type = PPBOX_AudioSubType::MP4A;
+                info.format_type = PPBOX_FormatType::audio_raw;
+                if (info.format_size > sizeof(HEAACWAVEINFO) - sizeof(WAVEFORMATEX))
+                {
+                    info.format_size -= sizeof(HEAACWAVEINFO) - sizeof(WAVEFORMATEX);
+                    info.format_buffer += sizeof(HEAACWAVEINFO) - sizeof(WAVEFORMATEX);
+                }
+            } else if (sub_type == MFAudioFormat_MP3) {
+                info.sub_type = PPBOX_AudioSubType::MP1A;
+                info.format_type = PPBOX_FormatType::audio_raw;
+            } else if (sub_type == MFAudioFormat_WMAudioV8) {
+                info.sub_type = PPBOX_AudioSubType::WMA2;
+                info.format_type = PPBOX_FormatType::none;
+            } else {
+                hr = MF_E_INVALIDTYPE;
+            }
+        }
     }
 
     // Format details.
@@ -575,81 +495,285 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppTy
     {
         // Sample size
 
-        hr = pType->SetUINT32(
+        UINT32 N;
+        hr = pType->GetUINT32(
             MF_MT_AUDIO_BITS_PER_SAMPLE,
-            info.audio_format.sample_size
+            &N
             );
+        if (SUCCEEDED(hr))
+        {
+            info.audio_format.sample_size = N;
+        }
     }
+
     if (SUCCEEDED(hr))
     {
         // Channel count
 
-        hr = pType->SetUINT32(
+        UINT32 N;
+        hr = pType->GetUINT32(
             MF_MT_AUDIO_NUM_CHANNELS,
-            info.audio_format.channel_count
+            &N
             );
+        if (SUCCEEDED(hr))
+        {
+            info.audio_format.channel_count = N;
+        }
     }
+
     if (SUCCEEDED(hr))
     {
         // Sample rate
 
-        hr = pType->SetUINT32(
+        UINT32 N;
+        hr = pType->GetUINT32(
             MF_MT_AUDIO_SAMPLES_PER_SECOND,
-            info.audio_format.sample_rate
+            &N
             );
+        if (SUCCEEDED(hr))
+        {
+            info.audio_format.sample_rate = N;
+        }
+    }
+
+    return hr;
+}
+
+HRESULT CreateMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
+{
+    HRESULT hr = S_OK;
+    memset(&info, 0, sizeof(info));
+
+    if (SUCCEEDED(hr))
+    {
+        GUID major;
+        hr = pType->GetGUID(MF_MT_MAJOR_TYPE, &major);
+        if (SUCCEEDED(hr)) {
+            if (major == MFMediaType_Video) {
+                info.type = PPBOX_StreamType::VIDE;
+            } else if (major == MFMediaType_Audio) {
+                info.type = PPBOX_StreamType::AUDI;
+            } else {
+                hr = MF_E_INVALIDTYPE;
+            }
+            info.time_scale = 10 * 1000 * 1000;
+        }
     }
 
     if (SUCCEEDED(hr))
     {
         // foramt data
-
-        hr = pType->SetBlob(
+        UINT8 * buf = new UINT8[256];
+        UINT32 len = 0;
+        hr = pType->GetBlob(
             MF_MT_USER_DATA,
-            info.format_buffer,
-            info.format_size
-            );
+            buf,
+            256, 
+            &len);
+        if (SUCCEEDED(hr)) {
+            info.format_size = len;
+            info.format_buffer = buf;
+        } else {
+            hr = S_OK;
+            delete buf;
+        }
     }
 
-    if (info.sub_type == ppbox_audio_aac)
+    // Subtype = Ppbox payload
+    if (SUCCEEDED(hr))
     {
-        if (SUCCEEDED(hr))
-        {
-            hr = pType->SetUINT32(
-                MF_MT_AAC_AUDIO_PROFILE_LEVEL_INDICATION,
-                0x29
-                );
-        }
-        if (SUCCEEDED(hr))
-        {
-            hr = pType->SetUINT32(
-                MF_MT_AAC_PAYLOAD_TYPE,
-                0
-                );
-        }
-        if (SUCCEEDED(hr))
-        {
-            // foramt data
-            struct {
-                HEAACWAVEFORMAT format;
-                char aac_config_data_pad[256];
-            } format;
+        if (info.type == PPBOX_StreamType::VIDE)
+            hr = CreateVideoMediaType(info, pType);
+        else if (info.type == PPBOX_StreamType::AUDI)
+            hr = CreateAudioMediaType(info, pType);
+    }
 
-            Fill_HEAACWAVEFORMAT(info, &format.format);
+    return hr;
+}
 
-            hr = pType->SetBlob(
-                MF_MT_USER_DATA,
-                (UINT8 const *)&format.format.wfInfo.wPayloadType,
-                sizeof(HEAACWAVEINFO) - sizeof(WAVEFORMATEX) + info.format_size
-                );
-        }
-    } // if (info.sub_type == ppbox_audio_aac)
+static DWORD SampleCount = 0;
+static DWORD LockSampleCount = 0;
+
+HRESULT CreateSample(PPBOX_CaptureSample& sample, IMFSample *pSample)
+{
+    HRESULT hr = S_OK;
+
+    memset(&sample, 0, sizeof(sample));
 
     if (SUCCEEDED(hr))
     {
-        *ppType = pType;
-        (*ppType)->AddRef();
+        // sync
+        UINT32 N = 0;
+        hr = pSample->GetUINT32
+            (MFSampleExtension_CleanPoint, 
+            &N);
+        if (SUCCEEDED(hr) && N)
+        {
+            sample.flags |= PPBOX_SampleFlagEnum::f_sync;
+        }
+        else
+        {
+            hr = S_OK;
+        }
     }
 
-    SafeRelease(&pType);
-    return hr;
+    if (SUCCEEDED(hr))
+    {
+        // discontinuity
+        UINT32 N = 0;
+        hr = pSample->GetUINT32
+            (MFSampleExtension_Discontinuity, 
+            &N);
+        if (SUCCEEDED(hr) && N)
+        {
+            sample.flags |= PPBOX_SampleFlagEnum::f_discontinuity;
+        }
+        else
+        {
+            hr = S_OK;
+        }
+    }
+
+    if (SUCCEEDED(hr))
+    {
+        // time
+        INT64 time = 0;
+        hr = pSample->GetSampleTime(
+            &time);
+        if (SUCCEEDED(hr))
+        {
+            sample.dts = time;
+        }
+    }
+
+    if (SUCCEEDED(hr))
+    {
+        // duration
+        INT64 duration = 0;
+        hr = pSample->GetSampleDuration(
+            &duration);
+        if (SUCCEEDED(hr))
+        {
+            sample.duration = (PP_uint32)duration;
+        }
+    }
+
+    if (SUCCEEDED(hr))
+    {
+        // size
+        DWORD size = 0;
+        hr = pSample->GetTotalLength(
+            &size);
+        if (SUCCEEDED(hr))
+        {
+            sample.size = size;
+        }
+    }
+
+    if (SUCCEEDED(hr))
+    {
+        // cbuf
+        DWORD dwBufferCount = 0;
+        hr = pSample->GetBufferCount(&dwBufferCount);
+        if (SUCCEEDED(hr))
+        {
+            sample.cbuf = dwBufferCount;
+        }
+    }
+
+    sample.context = pSample;
+    pSample->AddRef();
+
+    ++SampleCount;
+    ++LockSampleCount;
+
+    if (SampleCount % 10 == 0)
+        TRACE(0, L"SampleCount = %u - %u\r\n", SampleCount, LockSampleCount);
+
+    TRACEHR_RET(hr);
+}
+
+bool GetSampleBuffers(void const *context, PPBOX_CaptureBuffer * buffers)
+{
+    HRESULT hr = S_OK;
+    IMFMediaBuffer      *pBuffer = NULL;
+    IMFSample           *pSample = (IMFSample *)context;
+    DWORD               dwBufferCount = 0;
+    BYTE                *pData = NULL;      // Pointer to the IMFMediaBuffer data.
+    DWORD               dwSize = 0;
+    DWORD               dwTotalSize = 0;
+
+    hr = pSample->GetBufferCount(&dwBufferCount);
+
+    if (FAILED(hr))
+    {
+        return false;
+    }
+
+    for (DWORD i = 0; i < dwBufferCount; ++i)
+    {
+        hr = pSample->GetBufferByIndex(i, &pBuffer);
+        if (FAILED(hr))
+        {
+            break;
+        }
+        hr = pBuffer->Lock(&pData, NULL, &dwSize);
+        if (FAILED(hr))
+        {
+            SafeRelease(&pBuffer);
+            break;
+        }
+        buffers[i].data = pData;
+        buffers[i].len = dwSize;
+        dwTotalSize += dwSize;
+        SafeRelease(&pBuffer);
+    }
+
+    if (SUCCEEDED(hr)) {
+        DWORD size = 0;
+        hr = pSample->GetTotalLength(&size);
+        assert(dwTotalSize == size);
+    }
+
+    TraceError(__FILE__, __LINE__, __FUNCTION__, NULL, hr);
+    return SUCCEEDED(hr);
+}
+
+bool FreeSample(void const *context)
+{
+    HRESULT hr = S_OK;
+    IMFMediaBuffer      *pBuffer = NULL;
+    IMFSample           *pSample = (IMFSample *)context;
+    DWORD               dwBufferCount = 0;
+
+    hr = pSample->GetBufferCount(&dwBufferCount);
+
+    if (FAILED(hr))
+    {
+        TraceError(__FILE__, __LINE__, __FUNCTION__, NULL, hr);
+        return false;
+    }
+
+    for (DWORD i = 0; i < dwBufferCount; ++i)
+    {
+        hr = pSample->GetBufferByIndex(i, &pBuffer);
+        if (FAILED(hr))
+        {
+            break;
+        }
+        hr = pBuffer->Unlock();
+        if (FAILED(hr))
+        {
+            SafeRelease(&pBuffer);
+            break;
+        }
+        SafeRelease(&pBuffer);
+    }
+
+    SafeRelease(&pSample);
+
+    --LockSampleCount;
+
+    TraceError(__FILE__, __LINE__, __FUNCTION__, NULL, hr);
+    return SUCCEEDED(hr);
 }

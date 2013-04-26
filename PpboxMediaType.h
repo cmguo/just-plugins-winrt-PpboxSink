@@ -17,7 +17,7 @@
 
 #include "Windows.Media.MediaProperties.h"
 
-#include "ComPtrList.h";
+#include "ComPtrList.h"
 
 HRESULT ConvertPropertiesToMediaType(
     _In_ ABI::Windows::Media::MediaProperties::IMediaEncodingProperties *pMEP, 
@@ -27,7 +27,17 @@ HRESULT ConvertConfigurationsToMediaTypes(
     ABI::Windows::Foundation::Collections::IPropertySet *pConfigurations, 
     ComPtrList<IMFMediaType> * pListMT);
 
+HRESULT GetDestinationtFromConfigurations(
+    ABI::Windows::Foundation::Collections::IPropertySet *pConfigurations, 
+    HSTRING * pDestinationt);
+
 struct PPBOX_StreamInfoEx;
 
-HRESULT CreateVideoMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppType);
-HRESULT CreateAudioMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppType);
+HRESULT CreateVideoMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType);
+HRESULT CreateAudioMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType);
+HRESULT CreateMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType);
+
+HRESULT CreateSample(PPBOX_CaptureSample& sample, IMFSample *pSample);
+
+bool GetSampleBuffers(void const *context, PPBOX_CaptureBuffer * buffers);
+bool FreeSample(void const *context);

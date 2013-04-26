@@ -13,7 +13,9 @@
 //////////////////////////////////////////////////////////////////////////
 
 #include "StdAfx.h"
+#include "plugins/ppbox/ppbox.h"
 #include "PpboxMediaSink.h"
+#include "PpboxMediaType.h"
 #include "SafeRelease.h"
 #include "Trace.h"
 
@@ -489,8 +491,16 @@ HRESULT PpboxStreamSink::ProcessSample(IMFSample *pSample)
 
     if (SUCCEEDED(hr))
     {
-        TRACE(0, L"PpboxStreamSink::ProcessSample id = %u\r\n", m_dwIdentifier);
-        PrintSampleInfo(pSample);
+        if (m_dwIdentifier == 1)
+        {
+            //TRACE(0, L"PpboxStreamSink::ProcessSample id = %u\r\n", m_dwIdentifier);
+            //PrintSampleInfo(pSample);
+        }
+
+        PPBOX_CaptureSample sample;
+        CreateSample(sample, pSample);
+        sample.itrack = m_dwIdentifier;
+        PPBOX_CapturePutSample(m_pSink->GetPpboxCapture(), &sample);
     }
 
     if (SUCCEEDED(hr))
@@ -558,6 +568,10 @@ IFACEMETHODIMP PpboxStreamSink::IsMediaTypeSupported(
         return E_INVALIDARG;
     }
 
+    Trace(0, L"[PpboxStreamSink::IsMediaTypeSupported] id = %u\r\n", m_dwIdentifier);
+
+    PrintMediaType(pMediaType);
+
     SinkLock lock(m_pSink);
 
     GUID majorType = GUID_NULL;
@@ -585,14 +599,15 @@ IFACEMETHODIMP PpboxStreamSink::IsMediaTypeSupported(
         if (FAILED(pMediaType->GetGUID(MF_MT_SUBTYPE, &guiNewSubtype)) || 
             guiNewSubtype != m_guiSubtype)
         {
-            //hr = MF_E_INVALIDTYPE;
+            hr = MF_E_INVALIDTYPE;
         }
     }
 
     // We don't return any "close match" types.
     if (ppMediaType)
     {
-        *ppMediaType = nullptr;
+        //ComPtr<IMFMediaType> spMediaType = m_pMediaType;
+        //*ppMediaType = spMediaType.Detach();
     }
 
     TRACEHR_RET(hr);
@@ -659,10 +674,6 @@ IFACEMETHODIMP PpboxStreamSink::SetCurrentMediaType(IMFMediaType *pMediaType)
         return E_INVALIDARG;
     }
 
-    Trace(0, L"[PpboxStreamSink::SetCurrentMediaType] id = %u\r\n", m_dwIdentifier);
-
-    PrintMediaType(pMediaType);
-
     SinkLock lock(m_pSink);
 
     HRESULT hr = CheckShutdown();
@@ -691,7 +702,6 @@ IFACEMETHODIMP PpboxStreamSink::SetCurrentMediaType(IMFMediaType *pMediaType)
     {
         GUID guiMajorType;
         pMediaType->GetMajorType(&guiMajorType);
-        //_fIsVideo = (guiMajorType == MFMediaType_Video);
 
         m_pMediaType.ReleaseAndGetAddressOf();
         hr = MFCreateMediaType(&m_pMediaType);
@@ -705,7 +715,12 @@ IFACEMETHODIMP PpboxStreamSink::SetCurrentMediaType(IMFMediaType *pMediaType)
         }
         if (SUCCEEDED(hr))
         {
-            m_state = State_Ready;
+            if (m_state == State_TypeNotSet)
+                m_state = State_Ready;
+
+            PPBOX_CaptureStream stream;
+            CreateMediaType(stream, m_pMediaType.Get());
+            PPBOX_CaptureSetStream(m_pSink->GetPpboxCapture(), m_dwIdentifier, &stream);
         }
     }
 
@@ -771,7 +786,7 @@ BOOL PpboxStreamSink::ValidStateMatrix[PpboxStreamSink::State_Count][PpboxStream
 
 /* Ready */   TRUE,     TRUE,     FALSE,    TRUE,     TRUE,     FALSE,    TRUE,    
 
-/* Start */   FALSE,    TRUE,     FALSE,    TRUE,     TRUE,     TRUE,     TRUE,    
+/* Start */   TRUE,    TRUE,     FALSE,    TRUE,     TRUE,     TRUE,     TRUE,    
 
 /* Pause */   FALSE,    TRUE,     TRUE,     TRUE,     TRUE,     TRUE,     TRUE,    
 

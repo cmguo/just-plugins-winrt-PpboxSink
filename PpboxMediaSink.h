@@ -88,6 +88,12 @@ public:
     IFACEMETHOD (SetProperties) (ABI::Windows::Foundation::Collections::IPropertySet *pConfiguration);
 
 public:
+    PPBOX_HANDLE GetPpboxCapture()
+    {
+        return m_PpboxCapture;
+    }
+
+public:
     // IMFMediaSink
     STDMETHODIMP GetCharacteristics(DWORD* pdwCharacteristics);
     STDMETHODIMP AddStreamSink(DWORD dwStreamSinkIdentifier, IMFMediaType *pMediaType, IMFStreamSink **ppStreamSink);
@@ -145,6 +151,8 @@ private:
     BOOL                        m_bLive;
     UINT64                      m_uDuration;
     UINT64                      m_uTime;
+
+    PPBOX_HANDLE                m_PpboxCapture;
 };
 
 

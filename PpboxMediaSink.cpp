@@ -14,15 +14,15 @@
 
 
 #include "StdAfx.h"
-#include "PpboxMediaSink.h"
 #include <InitGuid.h>
 #include <wmcodecdsp.h>
+#include <atlconv.h>
 
 #include "SafeRelease.h"
 #include "Trace.h"
 
-#define PPBOX_EXTERN
 #include "plugins/ppbox/ppbox.h"
+#include "PpboxMediaSink.h"
 #include "PpboxMediaType.h"
 //-------------------------------------------------------------------
 //
@@ -116,6 +116,23 @@ IFACEMETHODIMP PpboxMediaSink::SetProperties(ABI::Windows::Foundation::Collectio
             pos = m_MediaTypes.Next(pos);
         }
     }
+
+    if (SUCCEEDED(hr))
+    {
+        USES_CONVERSION;
+
+        HSTRING dest = NULL;
+        GetDestinationtFromConfigurations(pConfiguration, &dest);
+        PCWSTR pswDest = WindowsGetStringRawBuffer(dest, NULL);
+        LPSTR pszDest = pswDest ? W2A(pswDest) : NULL;
+        m_PpboxCapture = PPBOX_CaptureCreate("winrt", pszDest);
+        PPBOX_CaptureConfigData config;
+        config.stream_count = m_streams.GetCount();
+        config.get_sample_buffers = GetSampleBuffers;
+        config.free_sample = FreeSample;
+        PPBOX_CaptureInit(m_PpboxCapture, &config);
+    }
+
     TRACEHR_RET(hr);
 }
 
