@@ -594,7 +594,7 @@ HRESULT CreateMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
 static DWORD SampleCount = 0;
 static DWORD LockSampleCount = 0;
 
-HRESULT CreateSample(PPBOX_CaptureSample& sample, IMFSample *pSample)
+HRESULT CreateSample(PPBOX_Sample& sample, IMFSample *pSample)
 {
     HRESULT hr = S_OK;
 
@@ -609,7 +609,7 @@ HRESULT CreateSample(PPBOX_CaptureSample& sample, IMFSample *pSample)
             &N);
         if (SUCCEEDED(hr) && N)
         {
-            sample.flags |= PPBOX_SampleFlagEnum::f_sync;
+            sample.flags |= PPBOX_SampleFlag::sync;
         }
         else
         {
@@ -626,7 +626,7 @@ HRESULT CreateSample(PPBOX_CaptureSample& sample, IMFSample *pSample)
             &N);
         if (SUCCEEDED(hr) && N)
         {
-            sample.flags |= PPBOX_SampleFlagEnum::f_discontinuity;
+            sample.flags |= PPBOX_SampleFlag::discontinuity;
         }
         else
         {
@@ -642,7 +642,7 @@ HRESULT CreateSample(PPBOX_CaptureSample& sample, IMFSample *pSample)
             &time);
         if (SUCCEEDED(hr))
         {
-            sample.dts = time;
+            sample.decode_time = time;
         }
     }
 
@@ -677,7 +677,25 @@ HRESULT CreateSample(PPBOX_CaptureSample& sample, IMFSample *pSample)
         hr = pSample->GetBufferCount(&dwBufferCount);
         if (SUCCEEDED(hr))
         {
-            sample.cbuf = dwBufferCount;
+            if (dwBufferCount == 1) {
+                IMFMediaBuffer *pBuffer = NULL;
+                BYTE *pData = NULL;      // Pointer to the IMFMediaBuffer data.
+                DWORD dwSize = 0;
+                hr = pSample->GetBufferByIndex(0, &pBuffer);
+                if (SUCCEEDED(hr))
+                {
+                    hr = pBuffer->Lock(&pData, NULL, &dwSize);
+                }
+                if (SUCCEEDED(hr))
+                {
+                    assert(dwSize == sample.size);
+                    sample.buffer = pData;
+                }
+                SafeRelease(&pBuffer);
+            } else {
+                sample.size = dwBufferCount;
+                sample.buffer = NULL;
+            }
         }
     }
 
@@ -693,7 +711,7 @@ HRESULT CreateSample(PPBOX_CaptureSample& sample, IMFSample *pSample)
     TRACEHR_RET(hr);
 }
 
-bool GetSampleBuffers(void const *context, PPBOX_CaptureBuffer * buffers)
+bool GetSampleBuffers(void const *context, PPBOX_SampleBuffer * buffers)
 {
     HRESULT hr = S_OK;
     IMFMediaBuffer      *pBuffer = NULL;

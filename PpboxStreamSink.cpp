@@ -497,7 +497,7 @@ HRESULT PpboxStreamSink::ProcessSample(IMFSample *pSample)
             //PrintSampleInfo(pSample);
         }
 
-        PPBOX_CaptureSample sample;
+        PPBOX_Sample sample;
         CreateSample(sample, pSample);
         sample.itrack = m_dwIdentifier;
         PPBOX_CapturePutSample(m_pSink->GetPpboxCapture(), &sample);
@@ -718,7 +718,7 @@ IFACEMETHODIMP PpboxStreamSink::SetCurrentMediaType(IMFMediaType *pMediaType)
             if (m_state == State_TypeNotSet)
                 m_state = State_Ready;
 
-            PPBOX_CaptureStream stream;
+            PPBOX_StreamInfo stream;
             CreateMediaType(stream, m_pMediaType.Get());
             PPBOX_CaptureSetStream(m_pSink->GetPpboxCapture(), m_dwIdentifier, &stream);
         }

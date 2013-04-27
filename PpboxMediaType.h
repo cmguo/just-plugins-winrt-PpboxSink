@@ -35,7 +35,7 @@ HRESULT CreateVideoMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType);
 HRESULT CreateAudioMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType);
 HRESULT CreateMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType);
 
-HRESULT CreateSample(PPBOX_CaptureSample& sample, IMFSample *pSample);
+HRESULT CreateSample(PPBOX_Sample& sample, IMFSample *pSample);
 
-bool GetSampleBuffers(void const *context, PPBOX_CaptureBuffer * buffers);
+bool GetSampleBuffers(void const *context, PPBOX_SampleBuffer * buffers);
 bool FreeSample(void const *context);
