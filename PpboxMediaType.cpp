@@ -609,7 +609,7 @@ HRESULT CreateSample(PPBOX_Sample& sample, IMFSample *pSample)
             &N);
         if (SUCCEEDED(hr) && N)
         {
-            sample.flags |= PPBOX_SampleFlag::sync;
+            sample.flags |= PPBOX_SampleFlag_sync;
         }
         else
         {
@@ -626,7 +626,7 @@ HRESULT CreateSample(PPBOX_Sample& sample, IMFSample *pSample)
             &N);
         if (SUCCEEDED(hr) && N)
         {
-            sample.flags |= PPBOX_SampleFlag::discontinuity;
+            sample.flags |= PPBOX_SampleFlag_discontinuity;
         }
         else
         {
