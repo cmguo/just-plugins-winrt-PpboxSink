@@ -24,7 +24,7 @@
 #include "Trace.h"
 
 #define PPBOX_IMPORT_FUNC
-#include "plugins/ppbox/ppbox.h"
+#include <plugins/ppbox/ppbox_dynamic.h>
 
 #include "PpboxMediaType.h"
 
@@ -389,8 +389,8 @@ HRESULT CreateVideoMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
         if (SUCCEEDED(hr))
         {
             if (sub_type == MFVideoFormat_H264) {
-                info.sub_type = PPBOX_VideoSubType::AVC1;
-                info.format_type = PPBOX_FormatType::video_avc_byte_stream;
+                info.sub_type = PPBOX_VideoSubType_AVC1;
+                info.format_type = PPBOX_FormatType_video_avc_byte_stream;
                 if (SUCCEEDED(hr))
                 {
                     // sequence header
@@ -410,8 +410,8 @@ HRESULT CreateVideoMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
                     }
                 }
             } else if (sub_type == MFVideoFormat_WMV3) {
-                info.sub_type = PPBOX_VideoSubType::WMV3;
-                info.format_type = PPBOX_FormatType::none;
+                info.sub_type = PPBOX_VideoSubType_WMV3;
+                info.format_type = PPBOX_FormatType_none;
             } else {
                 hr = MF_E_INVALIDTYPE;
             }
@@ -471,19 +471,19 @@ HRESULT CreateAudioMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
         if (SUCCEEDED(hr))
         {
             if (sub_type == MFAudioFormat_AAC) {
-                info.sub_type = PPBOX_AudioSubType::MP4A;
-                info.format_type = PPBOX_FormatType::audio_raw;
+                info.sub_type = PPBOX_AudioSubType_MP4A;
+                info.format_type = PPBOX_FormatType_audio_raw;
                 if (info.format_size > sizeof(HEAACWAVEINFO) - sizeof(WAVEFORMATEX))
                 {
                     info.format_size -= sizeof(HEAACWAVEINFO) - sizeof(WAVEFORMATEX);
                     info.format_buffer += sizeof(HEAACWAVEINFO) - sizeof(WAVEFORMATEX);
                 }
             } else if (sub_type == MFAudioFormat_MP3) {
-                info.sub_type = PPBOX_AudioSubType::MP1A;
-                info.format_type = PPBOX_FormatType::audio_raw;
+                info.sub_type = PPBOX_AudioSubType_MP1A;
+                info.format_type = PPBOX_FormatType_audio_raw;
             } else if (sub_type == MFAudioFormat_WMAudioV8) {
-                info.sub_type = PPBOX_AudioSubType::WMA2;
-                info.format_type = PPBOX_FormatType::none;
+                info.sub_type = PPBOX_AudioSubType_WMA2;
+                info.format_type = PPBOX_FormatType_none;
             } else {
                 hr = MF_E_INVALIDTYPE;
             }
@@ -550,9 +550,9 @@ HRESULT CreateMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
         hr = pType->GetGUID(MF_MT_MAJOR_TYPE, &major);
         if (SUCCEEDED(hr)) {
             if (major == MFMediaType_Video) {
-                info.type = PPBOX_StreamType::VIDE;
+                info.type = PPBOX_StreamType_VIDE;
             } else if (major == MFMediaType_Audio) {
-                info.type = PPBOX_StreamType::AUDI;
+                info.type = PPBOX_StreamType_AUDI;
             } else {
                 hr = MF_E_INVALIDTYPE;
             }
@@ -582,9 +582,9 @@ HRESULT CreateMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
     // Subtype = Ppbox payload
     if (SUCCEEDED(hr))
     {
-        if (info.type == PPBOX_StreamType::VIDE)
+        if (info.type == PPBOX_StreamType_VIDE)
             hr = CreateVideoMediaType(info, pType);
-        else if (info.type == PPBOX_StreamType::AUDI)
+        else if (info.type == PPBOX_StreamType_AUDI)
             hr = CreateAudioMediaType(info, pType);
     }
 

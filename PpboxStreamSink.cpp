@@ -13,7 +13,7 @@
 //////////////////////////////////////////////////////////////////////////
 
 #include "StdAfx.h"
-#include "plugins/ppbox/ppbox.h"
+#include <plugins/ppbox/ppbox_dynamic.h>
 #include "PpboxMediaSink.h"
 #include "PpboxMediaType.h"
 #include "SafeRelease.h"
