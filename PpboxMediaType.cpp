@@ -653,7 +653,7 @@ HRESULT CreateSample(PPBOX_Sample& sample, IMFSample *pSample)
             &duration);
         if (SUCCEEDED(hr))
         {
-            sample.duration = (PP_uint32)duration;
+            sample.duration = (PP_uint)duration;
         }
     }
 

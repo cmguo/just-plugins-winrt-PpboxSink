@@ -88,7 +88,7 @@ public:
     IFACEMETHOD (SetProperties) (ABI::Windows::Foundation::Collections::IPropertySet *pConfiguration);
 
 public:
-    PPBOX_HANDLE GetPpboxCapture()
+    PP_handle GetPpboxCapture()
     {
         return m_PpboxCapture;
     }
@@ -152,7 +152,7 @@ private:
     UINT64                      m_uDuration;
     UINT64                      m_uTime;
 
-    PPBOX_HANDLE                m_PpboxCapture;
+    PP_handle                   m_PpboxCapture;
 };
 
 
