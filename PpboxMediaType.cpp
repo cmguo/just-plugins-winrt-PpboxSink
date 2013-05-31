@@ -23,8 +23,6 @@
 #include "SafeRelease.h"
 #include "Trace.h"
 
-#include <plugins/ppbox/ppbox_runtime.h>
-
 #include "PpboxMediaType.h"
 
 using namespace ABI::Windows::Foundation;

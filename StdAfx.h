@@ -27,5 +27,9 @@
 #include <wrl\wrappers\corewrappers.h>
 #include <windows.media.h>
 
+#include <plugins/ppbox/include/IPpboxBoostTypes.h>
+#include <plugins/ppbox/include/IPpboxTypes.h>
+#include <plugins/ppbox/ppbox_runtime.h>
+
 using namespace Microsoft::WRL;
 using namespace Microsoft::WRL::Wrappers;

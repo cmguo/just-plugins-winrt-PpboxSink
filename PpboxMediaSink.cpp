@@ -21,7 +21,6 @@
 #include "SafeRelease.h"
 #include "Trace.h"
 
-#include <plugins/ppbox/ppbox_runtime.h>
 #include "PpboxMediaSink.h"
 #include "PpboxMediaType.h"
 //-------------------------------------------------------------------
