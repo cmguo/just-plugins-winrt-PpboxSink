@@ -448,7 +448,8 @@ HRESULT CreateVideoMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
             );
         if (SUCCEEDED(hr))
         {
-            info.video_format.frame_rate = N / D;
+            info.video_format.frame_rate_num = N;
+            info.video_format.frame_rate_den = D;
         }
     }
 
