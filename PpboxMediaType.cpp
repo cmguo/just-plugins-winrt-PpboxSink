@@ -21,7 +21,7 @@
 #include "Windows.Media.h"
 
 #include "SafeRelease.h"
-#include "Trace.h"
+#include "PropertySet.h"
 
 #include "PpboxMediaType.h"
 
@@ -251,38 +251,22 @@ HRESULT ConvertConfigurationsToMediaTypes(
     ComPtrList<IMFMediaType> * pListMT)
 {
     HRESULT hr = S_OK;
-    ComPtr<IPropertySet> sConfigurations(pConfigurations);
-    ComPtr<IMap<HSTRING, IInspectable*>> spMap;
-    HSTRING hKey = NULL;
-    ComPtr<IInspectable> spValue;
+    ComPtr<IPropertySet> spConfigurations(pConfigurations);
     ComPtr<IIterable<IMediaEncodingProperties*>> spIterable;
     ComPtr<IIterator<IMediaEncodingProperties*>> spIterator;
 
     if (pConfigurations == nullptr || pListMT == nullptr)
     {
-        return E_INVALIDARG;
+        hr = E_INVALIDARG;
     }
    
     pListMT->Clear();
 
-    hr = sConfigurations.As(&spMap);
+    if (SUCCEEDED(hr))
+    {
+        hr = PropertySetFind(spConfigurations, L"MediaEncodingProfile", spIterable);
+    }
 
-    if (SUCCEEDED(hr))
-    {
-        WindowsCreateString(L"MediaEncodingProfile", 20, &hKey);
-    }
-    if (SUCCEEDED(hr))
-    {
-        hr = spMap->Lookup(hKey, &spValue);
-    }
-    if (SUCCEEDED(hr))
-    {
-        hr = WindowsDeleteString(hKey);
-    }
-    if (SUCCEEDED(hr))
-    {
-        hr = spValue.As(&spIterable);
-    }
     if (SUCCEEDED(hr))
     {
         hr = spIterable->First(&spIterator);
@@ -333,38 +317,22 @@ HRESULT GetDestinationtFromConfigurations(
     HSTRING * pDestination)
 {
     HRESULT hr = S_OK;
-    ComPtr<IPropertySet> sConfigurations(pConfigurations);
-    ComPtr<IMap<HSTRING, IInspectable*>> spMap;
-    HSTRING hKey = NULL;
-    ComPtr<IInspectable> spValue;
+    ComPtr<IPropertySet > spConfigurations(pConfigurations);
     ComPtr<IPropertyValue> spDestination;
 
     if (pConfigurations == nullptr || pDestination == nullptr)
     {
-        return E_INVALIDARG;
+        hr = E_INVALIDARG;
     }
    
-    hr = sConfigurations.As(&spMap);
+    if (SUCCEEDED(hr))
+    {
+        hr = PropertySetFind(spConfigurations, L"Destination", spDestination);
+    }
 
     if (SUCCEEDED(hr))
     {
-        WindowsCreateString(L"Destination", 11, &hKey);
-    }
-    if (SUCCEEDED(hr))
-    {
-        hr = spMap->Lookup(hKey, &spValue);
-    }
-    if (SUCCEEDED(hr))
-    {
-        hr = WindowsDeleteString(hKey);
-    }
-    if (SUCCEEDED(hr))
-    {
-        hr = spValue.As(&spDestination);
-    }
-    if (SUCCEEDED(hr))
-    {
-        spDestination->GetString(pDestination);
+        hr = spDestination->GetString(pDestination);
     }
     return hr;
 }
@@ -386,8 +354,8 @@ HRESULT CreateVideoMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
         if (SUCCEEDED(hr))
         {
             if (sub_type == MFVideoFormat_H264) {
-                info.sub_type = PPBOX_VideoSubType_AVC1;
-                info.format_type = PPBOX_FormatType_video_avc_byte_stream;
+                info.sub_type = PPBOX_VideoSubType::AVC1;
+                info.format_type = PPBOX_FormatType::video_avc_byte_stream;
                 if (SUCCEEDED(hr))
                 {
                     // sequence header
@@ -407,8 +375,8 @@ HRESULT CreateVideoMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
                     }
                 }
             } else if (sub_type == MFVideoFormat_WMV3) {
-                info.sub_type = PPBOX_VideoSubType_WMV3;
-                info.format_type = PPBOX_FormatType_none;
+                info.sub_type = PPBOX_VideoSubType::WMV3;
+                info.format_type = PPBOX_FormatType::none;
             } else {
                 hr = MF_E_INVALIDTYPE;
             }
@@ -429,8 +397,8 @@ HRESULT CreateVideoMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
             );
         if (SUCCEEDED(hr))
         {
-            info.video_format.width = width;
-            info.video_format.height = height;
+            info.format.video.width = width;
+            info.format.video.height = height;
         }
     }
 
@@ -448,8 +416,8 @@ HRESULT CreateVideoMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
             );
         if (SUCCEEDED(hr))
         {
-            info.video_format.frame_rate_num = N;
-            info.video_format.frame_rate_den = D;
+            info.format.video.frame_rate_num = N;
+            info.format.video.frame_rate_den = D;
         }
     }
 
@@ -469,19 +437,19 @@ HRESULT CreateAudioMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
         if (SUCCEEDED(hr))
         {
             if (sub_type == MFAudioFormat_AAC) {
-                info.sub_type = PPBOX_AudioSubType_MP4A;
-                info.format_type = PPBOX_FormatType_audio_raw;
+                info.sub_type = PPBOX_AudioSubType::MP4A;
+                info.format_type = PPBOX_FormatType::audio_raw;
                 if (info.format_size > sizeof(HEAACWAVEINFO) - sizeof(WAVEFORMATEX))
                 {
                     info.format_size -= sizeof(HEAACWAVEINFO) - sizeof(WAVEFORMATEX);
                     info.format_buffer += sizeof(HEAACWAVEINFO) - sizeof(WAVEFORMATEX);
                 }
             } else if (sub_type == MFAudioFormat_MP3) {
-                info.sub_type = PPBOX_AudioSubType_MP1A;
-                info.format_type = PPBOX_FormatType_audio_raw;
+                info.sub_type = PPBOX_AudioSubType::MP1A;
+                info.format_type = PPBOX_FormatType::audio_raw;
             } else if (sub_type == MFAudioFormat_WMAudioV8) {
-                info.sub_type = PPBOX_AudioSubType_WMA2;
-                info.format_type = PPBOX_FormatType_none;
+                info.sub_type = PPBOX_AudioSubType::WMA2;
+                info.format_type = PPBOX_FormatType::none;
             } else {
                 hr = MF_E_INVALIDTYPE;
             }
@@ -500,7 +468,7 @@ HRESULT CreateAudioMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
             );
         if (SUCCEEDED(hr))
         {
-            info.audio_format.sample_size = N;
+            info.format.audio.sample_size = N;
         }
     }
 
@@ -515,7 +483,7 @@ HRESULT CreateAudioMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
             );
         if (SUCCEEDED(hr))
         {
-            info.audio_format.channel_count = N;
+            info.format.audio.channel_count = N;
         }
     }
 
@@ -530,7 +498,7 @@ HRESULT CreateAudioMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
             );
         if (SUCCEEDED(hr))
         {
-            info.audio_format.sample_rate = N;
+            info.format.audio.sample_rate = N;
         }
     }
 
@@ -548,9 +516,9 @@ HRESULT CreateMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
         hr = pType->GetGUID(MF_MT_MAJOR_TYPE, &major);
         if (SUCCEEDED(hr)) {
             if (major == MFMediaType_Video) {
-                info.type = PPBOX_StreamType_VIDE;
+                info.type = PPBOX_StreamType::VIDE;
             } else if (major == MFMediaType_Audio) {
-                info.type = PPBOX_StreamType_AUDI;
+                info.type = PPBOX_StreamType::AUDI;
             } else {
                 hr = MF_E_INVALIDTYPE;
             }
@@ -580,9 +548,9 @@ HRESULT CreateMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
     // Subtype = Ppbox payload
     if (SUCCEEDED(hr))
     {
-        if (info.type == PPBOX_StreamType_VIDE)
+        if (info.type == PPBOX_StreamType::VIDE)
             hr = CreateVideoMediaType(info, pType);
-        else if (info.type == PPBOX_StreamType_AUDI)
+        else if (info.type == PPBOX_StreamType::AUDI)
             hr = CreateAudioMediaType(info, pType);
     }
 
@@ -607,7 +575,7 @@ HRESULT CreateSample(PPBOX_Sample& sample, IMFSample *pSample)
             &N);
         if (SUCCEEDED(hr) && N)
         {
-            sample.flags |= PPBOX_SampleFlag_sync;
+            sample.flags |= PPBOX_SampleFlag::sync;
         }
         else
         {
@@ -624,7 +592,7 @@ HRESULT CreateSample(PPBOX_Sample& sample, IMFSample *pSample)
             &N);
         if (SUCCEEDED(hr) && N)
         {
-            sample.flags |= PPBOX_SampleFlag_discontinuity;
+            sample.flags |= PPBOX_SampleFlag::discontinuity;
         }
         else
         {

@@ -13,7 +13,6 @@
 
 #include "StdAfx.h"
 #include <wrl\module.h>
-#include <plugins/ppbox/ppbox_runtime.h>
 #include "PpboxMediaSink.h"
 
 namespace Microsoft { namespace Samples {
