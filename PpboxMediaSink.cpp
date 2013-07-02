@@ -63,7 +63,6 @@ public:
 PpboxMediaSink::PpboxMediaSink() :
     m_cRef(1),
     m_state(STATE_INVALID),
-    m_cRestartCounter(0),
 	m_bLive(FALSE),
     m_uDuration(0),
 	m_uTime(0)

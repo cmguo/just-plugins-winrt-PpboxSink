@@ -146,7 +146,6 @@ private:
     ComPtr<IMFPresentationClock>m_spClock;                   // Presentation clock.
 
     DWORD                       m_cPendingEOS;              // Pending EOS notifications.
-    ULONG                       m_cRestartCounter;          // Counter for sample requests.
 
     BOOL                        m_bLive;
     UINT64                      m_uDuration;
