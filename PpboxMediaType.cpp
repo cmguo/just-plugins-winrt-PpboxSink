@@ -677,7 +677,7 @@ HRESULT CreateSample(PPBOX_Sample& sample, IMFSample *pSample)
     TRACEHR_RET(hr);
 }
 
-bool GetSampleBuffers(void const *context, PPBOX_SampleBuffer * buffers)
+bool GetSampleBuffers(void const *context, PPBOX_ConstBuffer * buffers)
 {
     HRESULT hr = S_OK;
     IMFMediaBuffer      *pBuffer = NULL;
