@@ -445,7 +445,7 @@ HRESULT CreateAudioMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType)
                     info.format_buffer += sizeof(HEAACWAVEINFO) - sizeof(WAVEFORMATEX);
                 }
             } else if (sub_type == MFAudioFormat_MP3) {
-                info.sub_type = PPBOX_AudioSubType::MP1A;
+                info.sub_type = PPBOX_AudioSubType::MP3;
                 info.format_type = PPBOX_FormatType::audio_raw;
             } else if (sub_type == MFAudioFormat_WMAudioV8) {
                 info.sub_type = PPBOX_AudioSubType::WMA2;
