@@ -10,5 +10,5 @@
 #include <mfidl.h>
 #include <mferror.h>
 
-#include <ppbox/ppbox/IPpboxBoostTypes.h>
-#include <ppbox/ppbox/IPpboxRuntime.h>
+#include <just/just/IPpboxBoostTypes.h>
+#include <just/just/IPpboxRuntime.h>

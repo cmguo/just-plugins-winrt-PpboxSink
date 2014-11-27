@@ -123,13 +123,13 @@ IFACEMETHODIMP PpboxMediaSink::SetProperties(ABI::Windows::Foundation::Collectio
         GetDestinationtFromConfigurations(pConfiguration, &dest);
         PCWSTR pswDest = WindowsGetStringRawBuffer(dest, NULL);
         LPSTR pszDest = pswDest ? W2A(pswDest) : NULL;
-        m_PpboxCapture = PPBOX_CaptureCreate("winrt", pszDest);
-        PPBOX_CaptureConfigData config;
+        m_PpboxCapture = JUST_CaptureCreate("winrt", pszDest);
+        JUST_CaptureConfigData config;
         config.stream_count = m_streams.GetCount();
         config.flags = 0;
         config.get_sample_buffers = GetSampleBuffers;
         config.free_sample = FreeSample;
-        PPBOX_CaptureInit(m_PpboxCapture, &config);
+        JUST_CaptureInit(m_PpboxCapture, &config);
     }
 
     TRACEHR_RET(hr);

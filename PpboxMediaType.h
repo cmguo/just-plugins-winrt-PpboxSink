@@ -31,11 +31,11 @@ HRESULT GetDestinationtFromConfigurations(
     ABI::Windows::Foundation::Collections::IPropertySet *pConfigurations, 
     HSTRING * pDestinationt);
 
-HRESULT CreateVideoMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType);
-HRESULT CreateAudioMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType);
-HRESULT CreateMediaType(PPBOX_StreamInfo& info, IMFMediaType *pType);
+HRESULT CreateVideoMediaType(JUST_StreamInfo& info, IMFMediaType *pType);
+HRESULT CreateAudioMediaType(JUST_StreamInfo& info, IMFMediaType *pType);
+HRESULT CreateMediaType(JUST_StreamInfo& info, IMFMediaType *pType);
 
-HRESULT CreateSample(PPBOX_Sample& sample, IMFSample *pSample);
+HRESULT CreateSample(JUST_Sample& sample, IMFSample *pSample);
 
-bool GetSampleBuffers(void const *context, PPBOX_ConstBuffer * buffers);
+bool GetSampleBuffers(void const *context, JUST_ConstBuffer * buffers);
 bool FreeSample(void const *context);
